@@ -317,6 +317,7 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId>
                         dispatcherServices.getOperationCaches(),
                         this::triggerCheckpointAndGetCheckpointID,
                         this::triggerSavepointAndGetLocation,
+                        this::triggerDetachSavepointAndGetLocation,
                         this::stopWithSavepointAndGetLocation);
 
         this.localResourceCleaner =
@@ -1023,6 +1024,18 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId>
     }
 
     @Override
+    public CompletableFuture<Acknowledge> triggerDetachSavepoint(
+            final AsynchronousJobOperationKey operationKey,
+            final String savepointId,
+            final String targetDirectory,
+            SavepointFormatType formatType,
+            final TriggerSavepointMode savepointMode,
+            final Time timeout) {
+        return dispatcherCachedOperationsHandler.triggerDetachSavepoint(
+                operationKey, savepointId, targetDirectory, formatType, savepointMode, timeout);
+    }
+
+    @Override
     public CompletableFuture<String> triggerSavepointAndGetLocation(
             JobID jobId,
             String targetDirectory,
@@ -1033,6 +1046,25 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId>
                 jobId,
                 gateway ->
                         gateway.triggerSavepoint(
+                                targetDirectory,
+                                savepointMode.isTerminalMode(),
+                                formatType,
+                                timeout));
+    }
+
+    @Override
+    public CompletableFuture<String> triggerDetachSavepointAndGetLocation(
+            JobID jobId,
+            String savepointId,
+            String targetDirectory,
+            SavepointFormatType formatType,
+            TriggerSavepointMode savepointMode,
+            Time timeout) {
+        return performOperationOnJobMasterGateway(
+                jobId,
+                gateway ->
+                        gateway.triggerDetachSavepoint(
+                                savepointId,
                                 targetDirectory,
                                 savepointMode.isTerminalMode(),
                                 formatType,

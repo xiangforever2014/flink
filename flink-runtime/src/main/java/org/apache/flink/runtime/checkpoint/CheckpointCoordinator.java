@@ -507,7 +507,28 @@ public class CheckpointCoordinator {
             @Nullable final String targetLocation, final SavepointFormatType formatType) {
         final CheckpointProperties properties =
                 CheckpointProperties.forSavepoint(!unalignedCheckpointsEnabled, formatType);
-        return triggerSavepointInternal(properties, targetLocation);
+        return triggerSavepointInternal(
+                properties,
+                targetLocation,
+                DetachSavepointProperties.nonDetachSavepointProperties());
+    }
+
+    /**
+     * Triggers a savepoint in detach mode with the given savepoint directory as a target.
+     *
+     * @param targetLocation Target location for the savepoint, optional. If null, the state
+     *     backend's configured default will be used.
+     * @return A future to the completed checkpoint
+     * @throws IllegalStateException If no savepoint directory has been specified and no default
+     *     savepoint directory has been configured
+     */
+    public CompletableFuture<CompletedCheckpoint> triggerDetachSavepoint(
+            final String targetLocation, final SavepointFormatType formatType, String savepointId) {
+        Preconditions.checkNotNull(targetLocation);
+        final CheckpointProperties properties =
+                CheckpointProperties.forSavepoint(!unalignedCheckpointsEnabled, formatType);
+        return triggerSavepointInternal(
+                properties, targetLocation, new DetachSavepointProperties(savepointId));
     }
 
     /**
@@ -529,26 +550,38 @@ public class CheckpointCoordinator {
                 CheckpointProperties.forSyncSavepoint(
                         !unalignedCheckpointsEnabled, terminate, formatType);
 
-        return triggerSavepointInternal(properties, targetLocation);
+        return triggerSavepointInternal(
+                properties,
+                targetLocation,
+                DetachSavepointProperties.nonDetachSavepointProperties());
     }
 
     private CompletableFuture<CompletedCheckpoint> triggerSavepointInternal(
             final CheckpointProperties checkpointProperties,
-            @Nullable final String targetLocation) {
+            @Nullable final String targetLocation,
+            final DetachSavepointProperties detachSavepointProperties) {
 
         checkNotNull(checkpointProperties);
 
-        return triggerCheckpointFromCheckpointThread(checkpointProperties, targetLocation, false);
+        return triggerCheckpointFromCheckpointThread(
+                checkpointProperties, targetLocation, false, detachSavepointProperties);
     }
 
     private CompletableFuture<CompletedCheckpoint> triggerCheckpointFromCheckpointThread(
-            CheckpointProperties checkpointProperties, String targetLocation, boolean isPeriodic) {
+            CheckpointProperties checkpointProperties,
+            String targetLocation,
+            boolean isPeriodic,
+            DetachSavepointProperties detachSavepointProperties) {
         // TODO, call triggerCheckpoint directly after removing timer thread
         // for now, execute the trigger in timer thread to avoid competition
         final CompletableFuture<CompletedCheckpoint> resultFuture = new CompletableFuture<>();
         timer.execute(
                 () ->
-                        triggerCheckpoint(checkpointProperties, targetLocation, isPeriodic)
+                        triggerCheckpoint(
+                                        checkpointProperties,
+                                        targetLocation,
+                                        isPeriodic,
+                                        detachSavepointProperties)
                                 .whenComplete(
                                         (completedCheckpoint, throwable) -> {
                                             if (throwable == null) {
@@ -569,7 +602,11 @@ public class CheckpointCoordinator {
      * @return a future to the completed checkpoint.
      */
     public CompletableFuture<CompletedCheckpoint> triggerCheckpoint(boolean isPeriodic) {
-        return triggerCheckpointFromCheckpointThread(checkpointProperties, null, isPeriodic);
+        return triggerCheckpointFromCheckpointThread(
+                checkpointProperties,
+                null,
+                isPeriodic,
+                DetachSavepointProperties.nonDetachSavepointProperties());
     }
 
     /**
@@ -610,7 +647,8 @@ public class CheckpointCoordinator {
                         checkpointProperties.discardOnJobFailed(),
                         checkpointProperties.discardOnJobSuspended(),
                         checkpointProperties.isUnclaimed());
-        return triggerCheckpointFromCheckpointThread(properties, null, false);
+        return triggerCheckpointFromCheckpointThread(
+                properties, null, false, DetachSavepointProperties.nonDetachSavepointProperties());
     }
 
     @VisibleForTesting
@@ -618,9 +656,21 @@ public class CheckpointCoordinator {
             CheckpointProperties props,
             @Nullable String externalSavepointLocation,
             boolean isPeriodic) {
+        return triggerCheckpoint(
+                props,
+                externalSavepointLocation,
+                isPeriodic,
+                DetachSavepointProperties.nonDetachSavepointProperties());
+    }
 
+    CompletableFuture<CompletedCheckpoint> triggerCheckpoint(
+            CheckpointProperties props,
+            @Nullable String externalSavepointLocation,
+            boolean isPeriodic,
+            DetachSavepointProperties detachSavepointProperties) {
         CheckpointTriggerRequest request =
-                new CheckpointTriggerRequest(props, externalSavepointLocation, isPeriodic);
+                new CheckpointTriggerRequest(
+                        props, externalSavepointLocation, isPeriodic, detachSavepointProperties);
         chooseRequestToExecute(request).ifPresent(this::startTriggeringCheckpoint);
         return request.onCompletionPromise;
     }
@@ -683,7 +733,8 @@ public class CheckpointCoordinator {
                                                             pendingCheckpoint.getCheckpointID(),
                                                             request.props,
                                                             request.externalSavepointLocation,
-                                                            initializeBaseLocations);
+                                                            initializeBaseLocations,
+                                                            request.detachSavepointProperties);
                                             return Tuple2.of(
                                                     pendingCheckpoint, checkpointStorageLocation);
                                         } catch (Throwable e) {
@@ -876,10 +927,15 @@ public class CheckpointCoordinator {
             long checkpointID,
             CheckpointProperties props,
             @Nullable String externalSavepointLocation,
-            boolean initializeBaseLocations)
+            boolean initializeBaseLocations,
+            DetachSavepointProperties detachSavepointProperties)
             throws Exception {
         final CheckpointStorageLocation checkpointStorageLocation;
-        if (props.isSavepoint()) {
+        if (detachSavepointProperties.isDetachSavepoint) {
+            checkpointStorageLocation =
+                    checkpointStorageView.initializeLocationForDetachSavepoint(
+                            checkpointID, externalSavepointLocation);
+        } else if (props.isSavepoint()) {
             checkpointStorageLocation =
                     checkpointStorageView.initializeLocationForSavepoint(
                             checkpointID, externalSavepointLocation);
@@ -2341,11 +2397,26 @@ public class CheckpointCoordinator {
         }
     }
 
+    private static class DetachSavepointProperties {
+        private final boolean isDetachSavepoint;
+        @Nullable private final String savepointId;
+
+        public DetachSavepointProperties(@Nullable String savepointId) {
+            this.isDetachSavepoint = (savepointId != null);
+            this.savepointId = savepointId;
+        }
+
+        static DetachSavepointProperties nonDetachSavepointProperties() {
+            return new DetachSavepointProperties(null);
+        }
+    }
+
     static class CheckpointTriggerRequest {
         final long timestamp;
         final CheckpointProperties props;
         final @Nullable String externalSavepointLocation;
         final boolean isPeriodic;
+        final DetachSavepointProperties detachSavepointProperties;
         private final CompletableFuture<CompletedCheckpoint> onCompletionPromise =
                 new CompletableFuture<>();
 
@@ -2353,11 +2424,23 @@ public class CheckpointCoordinator {
                 CheckpointProperties props,
                 @Nullable String externalSavepointLocation,
                 boolean isPeriodic) {
+            this(
+                    props,
+                    externalSavepointLocation,
+                    isPeriodic,
+                    DetachSavepointProperties.nonDetachSavepointProperties());
+        }
 
+        CheckpointTriggerRequest(
+                CheckpointProperties props,
+                @Nullable String externalSavepointLocation,
+                boolean isPeriodic,
+                DetachSavepointProperties detachSavepointProperties) {
             this.timestamp = System.currentTimeMillis();
             this.props = checkNotNull(props);
             this.externalSavepointLocation = externalSavepointLocation;
             this.isPeriodic = isPeriodic;
+            this.detachSavepointProperties = detachSavepointProperties;
         }
 
         CompletableFuture<CompletedCheckpoint> getOnCompletionFuture() {
