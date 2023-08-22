@@ -57,6 +57,10 @@ public class TestingClusterClient<T> implements ClusterClient<T> {
             triggerSavepointFunction =
                     (ignore, savepointPath, formatType) ->
                             CompletableFuture.completedFuture(savepointPath);
+    private QuadFunction<JobID, String, String, SavepointFormatType, CompletableFuture<String>>
+            triggerDetachSavepointFunction =
+                    (ignore, savepointId, savepointPath, formatType) ->
+                            CompletableFuture.completedFuture(savepointPath);
 
     public void setCancelFunction(Function<JobID, CompletableFuture<Acknowledge>> cancelFunction) {
         this.cancelFunction = cancelFunction;
@@ -155,6 +159,16 @@ public class TestingClusterClient<T> implements ClusterClient<T> {
     public CompletableFuture<String> triggerSavepoint(
             JobID jobId, @Nullable String savepointDirectory, SavepointFormatType formatType) {
         return triggerSavepointFunction.apply(jobId, savepointDirectory, formatType);
+    }
+
+    @Override
+    public CompletableFuture<String> triggerDetachSavepoint(
+            JobID jobId,
+            String savepointId,
+            @Nullable String savepointDirectory,
+            SavepointFormatType formatType) {
+        return triggerDetachSavepointFunction.apply(
+                jobId, savepointId, savepointDirectory, formatType);
     }
 
     @Override

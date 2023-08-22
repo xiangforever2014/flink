@@ -49,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
@@ -209,6 +210,35 @@ class CliFrontendSavepointTest extends CliFrontendTestBase {
         }
     }
 
+    // ------------------------------------------------------------------------
+    // detach savepoint
+    // ------------------------------------------------------------------------
+
+    @Test
+    void testTriggerDetachSavepointSuccess() throws Exception {
+
+        JobID jobId = new JobID();
+
+        String savepointPath = "expectedSavepointPath";
+
+        final ClusterClient<String> clusterClient = createDetachClusterClient(savepointPath);
+
+        try {
+            MockedCliFrontend frontend = new MockedCliFrontend(clusterClient);
+
+            String[] parameters = {"-dcp", jobId.toString()};
+            frontend.savepoint(parameters);
+
+            verify(clusterClient, times(1))
+                    .triggerDetachSavepoint(
+                            eq(jobId), isNotNull(), isNull(), eq(SavepointFormatType.DEFAULT));
+
+            assertThat(buffer.toString()).contains(savepointPath);
+        } finally {
+            clusterClient.close();
+        }
+    }
+
     /** Tests disposal with a JAR file. */
     @Test
     void testDisposeWithJar(@TempDir java.nio.file.Path tmp) throws Exception {
@@ -308,6 +338,19 @@ class CliFrontendSavepointTest extends CliFrontendTestBase {
 
         when(clusterClient.triggerSavepoint(
                         any(JobID.class),
+                        nullable(String.class),
+                        nullable(SavepointFormatType.class)))
+                .thenReturn(CompletableFuture.completedFuture(expectedResponse));
+
+        return clusterClient;
+    }
+
+    private static ClusterClient<String> createDetachClusterClient(String expectedResponse) {
+        final ClusterClient<String> clusterClient = mock(ClusterClient.class);
+
+        when(clusterClient.triggerDetachSavepoint(
+                        any(JobID.class),
+                        any(String.class),
                         nullable(String.class),
                         nullable(SavepointFormatType.class)))
                 .thenReturn(CompletableFuture.completedFuture(expectedResponse));

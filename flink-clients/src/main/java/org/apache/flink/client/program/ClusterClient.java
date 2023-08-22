@@ -189,14 +189,11 @@ public interface ClusterClient<T> extends AutoCloseable {
      * @param formatType a binary format of the savepoint
      * @return path future where the savepoint is located
      */
-    default CompletableFuture<String> triggerDetachSavepoint(
+    CompletableFuture<String> triggerDetachSavepoint(
             JobID jobId,
             String savepointId,
             @Nullable String savepointDirectory,
-            SavepointFormatType formatType) {
-        throw new UnsupportedOperationException(
-                "Do not support triggerDetachSavepoint except for RestClusterClient");
-    }
+            SavepointFormatType formatType);
 
     /**
      * Sends out a request to a specified coordinator and return the response.
