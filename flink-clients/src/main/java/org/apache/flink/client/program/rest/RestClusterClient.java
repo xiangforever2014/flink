@@ -544,6 +544,14 @@ public class RestClusterClient<T> implements ClusterClient<T> {
     }
 
     @Override
+    public CompletableFuture<String> triggerDetachSavepoint(
+            final JobID jobId,
+            final @Nullable String savepointDirectory,
+            final SavepointFormatType formatType) {
+        return triggerDetachSavepoint(jobId, savepointDirectory, false, formatType);
+    }
+
+    @Override
     public CompletableFuture<CoordinationResponse> sendCoordinationRequest(
             JobID jobId, OperatorID operatorId, CoordinationRequest request) {
         ClientCoordinationHeaders headers = ClientCoordinationHeaders.getInstance();
@@ -606,6 +614,27 @@ public class RestClusterClient<T> implements ClusterClient<T> {
                             }
                             return savepointInfo.getLocation();
                         });
+    }
+
+    private CompletableFuture<String> triggerDetachSavepoint(
+            final JobID jobId,
+            final @Nullable String savepointDirectory,
+            final boolean cancelJob,
+            final SavepointFormatType formatType) {
+        final SavepointTriggerHeaders savepointTriggerHeaders =
+                SavepointTriggerHeaders.getInstance();
+        final SavepointTriggerMessageParameters savepointTriggerMessageParameters =
+                savepointTriggerHeaders.getUnresolvedMessageParameters();
+        savepointTriggerMessageParameters.jobID.resolve(jobId);
+
+        final CompletableFuture<TriggerResponse> responseFuture =
+                sendRequest(
+                        savepointTriggerHeaders,
+                        savepointTriggerMessageParameters,
+                        new SavepointTriggerRequestBody(
+                                savepointDirectory, cancelJob, formatType, null));
+
+        return responseFuture.thenApply((TriggerResponse tr) -> tr.getTriggerId().toString());
     }
 
     @Override

@@ -179,6 +179,23 @@ public interface ClusterClient<T> extends AutoCloseable {
             JobID jobId, @Nullable String savepointDirectory, SavepointFormatType formatType);
 
     /**
+     * Triggers a detach savepoint for the job identified by the job id. The savepoint will be
+     * written to the given savepoint directory, or {@link
+     * org.apache.flink.configuration.CheckpointingOptions#SAVEPOINT_DIRECTORY} if it is null.
+     * Notice that: detach savepoint will return with a savepoint trigger id instead of the path
+     * future, that means the client will return very quickly.
+     *
+     * @param jobId job id
+     * @param savepointDirectory directory the savepoint should be written to
+     * @param formatType a binary format of the savepoint
+     * @return The savepoint trigger id
+     */
+    default CompletableFuture<String> triggerDetachSavepoint(
+            JobID jobId, @Nullable String savepointDirectory, SavepointFormatType formatType) {
+        return triggerSavepoint(jobId, savepointDirectory, formatType);
+    }
+
+    /**
      * Sends out a request to a specified coordinator and return the response.
      *
      * @param jobId specifies the job which the coordinator belongs to
