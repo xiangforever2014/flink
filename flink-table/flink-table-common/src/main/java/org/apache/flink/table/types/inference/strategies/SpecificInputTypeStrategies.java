@@ -60,9 +60,17 @@ public final class SpecificInputTypeStrategies {
     public static final InputTypeStrategy CURRENT_WATERMARK =
             new CurrentWatermarkInputTypeStrategy();
 
+    /** See {@link OverTypeStrategy}. */
+    public static final InputTypeStrategy OVER = new OverTypeStrategy();
+
     /** See {@link WindowTimeIndictorInputTypeStrategy}. */
     public static InputTypeStrategy windowTimeIndicator(TimestampKind timestampKind) {
         return new WindowTimeIndictorInputTypeStrategy(timestampKind);
+    }
+
+    /** See {@link WindowTimeIndictorInputTypeStrategy}. */
+    public static InputTypeStrategy windowTimeIndicator() {
+        return new WindowTimeIndictorInputTypeStrategy(null);
     }
 
     /** Argument type representing all types supported in a JSON context. */

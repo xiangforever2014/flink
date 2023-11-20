@@ -672,14 +672,16 @@ public final class BuiltInFunctionDefinitions {
             BuiltInFunctionDefinition.newBuilder()
                     .name("collect")
                     .kind(AGGREGATE)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
+                    .inputTypeStrategy(sequence(ANY))
+                    .outputTypeStrategy(SpecificTypeStrategies.COLLECT)
                     .build();
 
     public static final BuiltInFunctionDefinition DISTINCT =
             BuiltInFunctionDefinition.newBuilder()
                     .name("distinct")
                     .kind(AGGREGATE)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
+                    .inputTypeStrategy(sequence(ANY))
+                    .outputTypeStrategy(argument(0))
                     .build();
 
     // --------------------------------------------------------------------------------------------
@@ -1985,14 +1987,16 @@ public final class BuiltInFunctionDefinitions {
             BuiltInFunctionDefinition.newBuilder()
                     .name("start")
                     .kind(OTHER)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
+                    .inputTypeStrategy(SpecificInputTypeStrategies.windowTimeIndicator())
+                    .outputTypeStrategy(explicit(DataTypes.TIMESTAMP(3)))
                     .build();
 
     public static final BuiltInFunctionDefinition WINDOW_END =
             BuiltInFunctionDefinition.newBuilder()
                     .name("end")
                     .kind(OTHER)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
+                    .inputTypeStrategy(SpecificInputTypeStrategies.windowTimeIndicator())
+                    .outputTypeStrategy(explicit(DataTypes.TIMESTAMP(3)))
                     .build();
 
     // --------------------------------------------------------------------------------------------
@@ -2003,14 +2007,16 @@ public final class BuiltInFunctionDefinitions {
             BuiltInFunctionDefinition.newBuilder()
                     .name("asc")
                     .kind(OTHER)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
+                    .inputTypeStrategy(sequence(ANY))
+                    .outputTypeStrategy(argument(0))
                     .build();
 
     public static final BuiltInFunctionDefinition ORDER_DESC =
             BuiltInFunctionDefinition.newBuilder()
                     .name("desc")
                     .kind(OTHER)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
+                    .inputTypeStrategy(sequence(ANY))
+                    .outputTypeStrategy(argument(0))
                     .build();
 
     // --------------------------------------------------------------------------------------------
@@ -2057,35 +2063,8 @@ public final class BuiltInFunctionDefinitions {
             BuiltInFunctionDefinition.newBuilder()
                     .name("over")
                     .kind(OTHER)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
-                    .build();
-
-    public static final BuiltInFunctionDefinition UNBOUNDED_RANGE =
-            BuiltInFunctionDefinition.newBuilder()
-                    .name("unboundedRange")
-                    .kind(OTHER)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
-                    .build();
-
-    public static final BuiltInFunctionDefinition UNBOUNDED_ROW =
-            BuiltInFunctionDefinition.newBuilder()
-                    .name("unboundedRow")
-                    .kind(OTHER)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
-                    .build();
-
-    public static final BuiltInFunctionDefinition CURRENT_RANGE =
-            BuiltInFunctionDefinition.newBuilder()
-                    .name("currentRange")
-                    .kind(OTHER)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
-                    .build();
-
-    public static final BuiltInFunctionDefinition CURRENT_ROW =
-            BuiltInFunctionDefinition.newBuilder()
-                    .name("currentRow")
-                    .kind(OTHER)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
+                    .inputTypeStrategy(SpecificInputTypeStrategies.OVER)
+                    .outputTypeStrategy(TypeStrategies.argument(0))
                     .build();
 
     // --------------------------------------------------------------------------------------------
@@ -2302,7 +2281,8 @@ public final class BuiltInFunctionDefinitions {
             BuiltInFunctionDefinition.newBuilder()
                     .name("streamRecordTimestamp")
                     .kind(OTHER)
-                    .outputTypeStrategy(TypeStrategies.MISSING)
+                    .inputTypeStrategy(NO_ARGS)
+                    .outputTypeStrategy(explicit(DataTypes.BIGINT()))
                     .build();
 
     public static final BuiltInFunctionDefinition RANGE_TO =
